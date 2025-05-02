@@ -65,8 +65,8 @@ import { Sexp, Token } from "s-expression";
 ;;         |  ( let ( binding* ) <cexp>+ )  / LetExp(bindings:Binding[], body:CExp[]))
 ;;         |  ( quote <sexp> )              / LitExp(val:SExp)
 ;;         |  ( <cexp> <cexp>* )            / AppExp(operator:CExp, operands:CExp[]))
-;;         |  (dict (<var> <cexp>)*) / DictExp(entries: {key: string, val: CExp[]}[])
-;; <binding>  ::= ( <var> <cexp> )           / Binding(var:VarDecl, val:Cexp)
+;;         |  (dict (<var> <cexp>)*)        / DictExp(entries: {key: string, val: CExp[]}[])
+;; <binding>  ::= ( <var> <cexp> )          / Binding(var:VarDecl, val:Cexp)
 ;; <prim-op>  ::= + | - | * | / | < | > | = | not |  and | or | eq? | string=?
 ;;                  | cons | car | cdr | pair? | number? | list 
 ;;                  | boolean? | symbol? | string?      ##### L3
