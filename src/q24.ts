@@ -35,58 +35,52 @@ import {
   SExpValue,
 } from "./L32/L32-value";
 
-  //Converts a DictExp to a LitExp containing a DictValue, creates a makeDict from the entries, each value is mapped by convertCExpToLit
-  //and the result is packed in a LitExp using makeLitExp
-  export const convertDictExp = (exp: DictExp): CExp =>
-    makeLitExp(
-      makeDict(
-        exp.entries.map(({ key, val }) => ({
-          key,
-          val: convertCExpToLit(val),
-        }))
-      )
-    );
+//Converts a DictExp to a LitExp containing a DictValue, creates a makeDict from the entries, each value is mapped by convertCExpToLit
+//and the result is packed in a LitExp using makeLitExp
+export const convertDictExp = (exp: DictExp): CExp =>
+  makeLitExp(
+    makeDict(
+      exp.entries.map(({ key, val }) => ({
+        key,
+        val: convertCExpToLit(val),
+      }))
+    )
+  );
 
-
-    // Accepts a CExp expression and returns its literal representation as an SExpValue (Scheme S-expression),
-    // to be incorporated into the DictValue
-    const convertCExpToLit = (exp: CExp): SExpValue => {
-      //Literal expressions: return the literal value directly
-      if (isLitExp(exp)) {
-        return exp.val as SExpValue;
-      }
-      //Numeric, boolean, and string atomic expressions
-      if (isNumExp(exp)) {
-        return exp.val;
-      }
-      if (isBoolExp(exp)) {
-        return exp.val;
-      }
-      if (isStrExp(exp)) {
-        return exp.val;
-      }
-      //Primitive operations and variable references: convert to symbol S-expressions
-      if (isPrimOp(exp)) {
-        return makeSymbolSExp(exp.op);
-      }
-      if (isVarRef(exp)) {
-        return makeSymbolSExp(exp.var);
-      }
-      //Application expressions: build a list '(rator rand1 rand2 ...)
-      if (isAppExp(exp)) {
-        const items: SExpValue[] = [exp.rator, ...exp.rands].map(convertCExpToLit);
-        return items.reduceRight<SExpValue>(
+// Accepts a CExp expression and returns its literal representation as an SExpValue (Scheme S-expression),
+// to be incorporated into the DictValue
+const convertCExpToLit = (exp: CExp): SExpValue =>
+  //Literal expressions: return the literal value directly
+  isLitExp(exp)
+    ? (exp.val as SExpValue)
+    : //Numeric, boolean, and string atomic expressions
+    isNumExp(exp)
+    ? exp.val
+    : isBoolExp(exp)
+    ? exp.val
+    : isStrExp(exp)
+    ? exp.val
+    : //Primitive operations and variable references: convert to symbol S-expressions
+    isPrimOp(exp)
+    ? makeSymbolSExp(exp.op)
+    : isVarRef(exp)
+    ? makeSymbolSExp(exp.var)
+    : //Application expressions: build a list '(rator rand1 rand2 ...)
+    isAppExp(exp)
+    ? [exp.rator, ...exp.rands]
+        .map(convertCExpToLit)
+        .reduceRight<SExpValue>(
           (tail, head) => makeCompoundSExp(head, tail),
           makeEmptySExp()
-        );
-      }
-      //Lambda expressions: convert to '(lambda (args...) body...),
-      // first builds a parameter list, converts each body expression, unifies it into a list of complications.
-      if (isProcExp(exp)) {
+        )
+    : //Lambda expressions: convert to '(lambda (args...) body...),
+    // first builds a parameter list, converts each body expression, unifies it into a list of complications.
+    isProcExp(exp)
+    ? (() => {
         const lambdaSym = makeSymbolSExp("lambda");
         // Build the parameter list
         const argsList = exp.args
-          .map(decl => makeSymbolSExp(decl.var))
+          .map((decl) => makeSymbolSExp(decl.var))
           .reduceRight<SExpValue>(
             (tail, head) => makeCompoundSExp(head, tail),
             makeEmptySExp()
@@ -99,9 +93,10 @@ import {
           (tail, head) => makeCompoundSExp(head, tail),
           makeEmptySExp()
         );
-      }
-      //Nested dictionary expressions: convert to '(dict (k1 . v1) (k2 . v2) ...)
-      if (isDictExp(exp)) {
+      })()
+    : //Nested dictionary expressions: convert to '(dict (k1 . v1) (k2 . v2) ...)
+    isDictExp(exp)
+    ? (() => {
         const dictSym = makeSymbolSExp("dict");
         const entryLists: SExpValue[] = exp.entries.map(({ key, val }) => {
           const k = makeSymbolSExp(key);
@@ -114,10 +109,13 @@ import {
           (tail, head) => makeCompoundSExp(head, tail),
           makeEmptySExp()
         );
-      }
-      // If we reach here, we don't know how to convert exp to a literal
-      throw new Error(`Cannot convert CExp to literal: ${JSON.stringify(exp)}`);
-    };
+      })()
+    : // If we reach here, we don't know how to convert exp to a literal
+      (() => {
+        throw new Error(
+          `Cannot convert CExp to literal: ${JSON.stringify(exp)}`
+        );
+      })();
 
 // Iterates over all CExp structures and only replaces the DictExp using convertDictExp
 // The rest of the nodes are preserved or recursed in.
@@ -152,6 +150,12 @@ const Dict2AppCExp = (e: CExp): CExp =>
 
 // A main function that performs a transformation on any program
 //Converts each DictExp in the AST to a LitExp of DictValue, leaving the rest of the CExp as they were
+
+/*
+Purpose: rewrite all occurrences of DictExp in a program to AppExp.
+Signature: Dict2App (exp)
+Type: Program -> Program
+*/
 export const Dict2App = (prog: Program): Program =>
   makeProgram(
     prog.exps.map((e: Exp) =>
@@ -189,30 +193,15 @@ const L32toL3CExp = (exp: CExp): CExp =>
 
 //First calls Dict2App(prog) to convert each DictExp to a LitExp of DictValue, then
 //applies the result to each Exp expression with the L32 to L3 conversion by L32toL3CExp and packs back in makeProgram
+
+/*
+Purpose: Transform L32 program to L3
+Signature: L32ToL3(prog)
+Type: Program -> Program
+*/
 export const L32toL3 = (prog: Program): Program =>
   makeProgram(
     Dict2App(prog).exps.map((e: Exp) =>
       isDefineExp(e) ? { ...e, val: L32toL3CExp(e.val) } : L32toL3CExp(e)
     )
   );
-
-/*
-Purpose: rewrite all occurrences of DictExp in a program to AppExp.
-Signature: Dict2App (exp)
-Type: Program -> Program
-*/
-/*export const Dict2App  = (exp: Program) : Program =>
-    //@TODO
-    makeProgram([]);*/
-
-/*
-Purpose: Transform L32 program to L3
-Signature: L32ToL3(prog)
-Type: Program -> Program
-
-export const L32toL3 = (prog: Program): Program =>
-  //@TODO
-  makeProgram([]);
-function makeFailure(arg0: string) {
-  throw new Error("Function not implemented.");
-}*/
